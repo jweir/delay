@@ -12,7 +12,7 @@ var buf bytes.Buffer
 
 func Example() {
 	// buf can be anything with implements `io.ReadWriter`
-	pb := delay.NewDelayBuffer(time.Second*1, &buf)
+	pb := delay.NewBuffer(time.Second*1, &buf)
 
 	// write some data, this data will be stamped with time.Now()
 	pb.Write([]byte("abc"))

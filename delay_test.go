@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func (pb *DelayBuffer) readExpects(b []byte, t *testing.T) {
+func (pb *Buffer) readExpects(b []byte, t *testing.T) {
 	o := make([]byte, len(b))
 	pb.Read(o)
 
@@ -19,7 +19,7 @@ func (pb *DelayBuffer) readExpects(b []byte, t *testing.T) {
 func TestReading(t *testing.T) {
 	var now time.Time
 	var buf bytes.Buffer
-	pb := NewDelayBuffer(time.Second*20, &buf)
+	pb := NewBuffer(time.Second*20, &buf)
 
 	pb.time = func() time.Time { return now }
 

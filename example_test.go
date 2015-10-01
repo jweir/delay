@@ -1,4 +1,4 @@
-package delay_test
+package delay
 
 import (
 	"bytes"
@@ -8,20 +8,25 @@ import (
 	"github.com/jweir/delay"
 )
 
+var buf bytes.Buffer
+
 func Example() {
-	var buf bytes.Buffer
+	// buf can be anything with implements `io.ReadWriter`
 	pb := delay.NewDelayBuffer(time.Second*1, &buf)
 
+	// write some data, this data will be stamped with time.Now()
 	pb.Write([]byte("abc"))
 
 	b := make([]byte, 3)
 
+	// too soon to read anything
 	s, _ := pb.Read(b)
 	fmt.Println(s)
 	fmt.Println(b)
 
 	time.Sleep(1 * time.Second)
 
+	// now enough time has passed to read the bytes
 	s, _ = pb.Read(b)
 	fmt.Println(s)
 	fmt.Println(b)

@@ -1,14 +1,16 @@
-package delay
+package delay_test
 
 import (
 	"bytes"
 	"fmt"
 	"time"
+
+	"github.com/jweir/delay"
 )
 
 func Example() {
 	var buf bytes.Buffer
-	pb := NewDelayBuffer(time.Second*1, &buf)
+	pb := delay.NewDelayBuffer(time.Second*1, &buf)
 
 	pb.Write([]byte("abc"))
 

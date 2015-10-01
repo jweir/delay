@@ -7,12 +7,14 @@ import (
 	"time"
 )
 
-// Delay will cause an io.ReadWriter to only Read after the given Delay has passed.
+// DelayBuffer is an io.ReadWriter which will only Read after the given Delay has passed.
 // It must be initiated through the NewDelay function.
 //
-// Be aware that the delay can use a lot of memory, so make sure the give
-// io.ReadWriter writes to disk, or can otherwise handle the memory.
-type Delay struct {
+// Internally it works by encoding the input stream with a timestamp.
+//
+// For long delays, or environments writing large amounts of data, it may be
+// necessary to write to disk – an in memory ReadWriter might run out of memory.
+type DelayBuffer struct {
 	io.ReadWriter
 
 	// Delay is the duration to hold the data until read for reading.
@@ -37,8 +39,9 @@ type chunk struct {
 	Data      []byte
 }
 
-func NewDelay(del time.Duration, buf io.ReadWriter) *Delay {
-	return &Delay{
+// Creates a new Delay for the given duration.
+func NewDelayBuffer(del time.Duration, buf io.ReadWriter) *DelayBuffer {
+	return &DelayBuffer{
 		Delay: del,
 		time:  time.Now,
 		head:  bytes.NewBuffer([]byte{}),
@@ -47,11 +50,10 @@ func NewDelay(del time.Duration, buf io.ReadWriter) *Delay {
 	}
 }
 
-// Read will write upto len(b) bytes.
-// When len(b) is greater than the chu
-func (pb *Delay) Write(b []byte) (int, error) {
-	c := chunk{pb.time(), b}
-	err := pb.enc.Encode(c)
+// Write will write len(b) bytes and tag it with the current time.
+func (db *DelayBuffer) Write(b []byte) (int, error) {
+	c := chunk{db.time(), b}
+	err := db.enc.Encode(c)
 
 	if err != nil {
 		return 0, err
@@ -60,10 +62,10 @@ func (pb *Delay) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-func (pb *Delay) fillLimbo() error {
+func (db *DelayBuffer) fillLimbo() error {
 	for {
 		var c chunk
-		err := pb.dec.Decode(&c)
+		err := db.dec.Decode(&c)
 
 		if err != nil && err.Error() == "EOF" {
 			return nil
@@ -73,20 +75,20 @@ func (pb *Delay) fillLimbo() error {
 			return err
 		}
 
-		pb.limbo = append(pb.limbo, c)
+		db.limbo = append(db.limbo, c)
 
 		// terminate, don't want to keep filling if this chunk is in delay
-		if pb.canRead(c) != true {
+		if db.canRead(c) != true {
 			return nil
 		}
 	}
 }
 
-func (pb *Delay) fillHead() error {
+func (db *DelayBuffer) fillHead() error {
 	found := []chunk{}
-	for _, chunk := range pb.limbo {
-		if pb.canRead(chunk) {
-			_, e := pb.head.Write(chunk.Data)
+	for _, chunk := range db.limbo {
+		if db.canRead(chunk) {
+			_, e := db.head.Write(chunk.Data)
 			if e != nil {
 				return e
 			}
@@ -98,29 +100,35 @@ func (pb *Delay) fillHead() error {
 
 	count := len(found)
 	if count >= 1 {
-		pb.limbo = append([]chunk{}, pb.limbo[count:]...)
+		db.limbo = append([]chunk{}, db.limbo[count:]...)
 	}
 
 	return nil
 }
 
-func (pb *Delay) Read(b []byte) (int, error) {
-	err := pb.fillLimbo()
+// Read will read upto len(b) bytes into b.  Read will only read bytes which were
+// written at time.Now().Add(-db.Delay) ago or earlier.
+//
+// Read returns the number of bytes read and an error.
+//
+// When  DelayBuffer is waiting for data to be released, the return value will be 0, nil.
+func (db *DelayBuffer) Read(b []byte) (int, error) {
+	err := db.fillLimbo()
 	if err != nil {
 		return 0, err
 	}
 
-	err = pb.fillHead()
+	err = db.fillHead()
 
 	if err != nil {
 		return 0, err
 	}
 
-	return pb.head.Read(b)
+	return db.head.Read(b)
 }
 
-func (pb *Delay) canRead(c chunk) bool {
-	valid := pb.time().Add(-pb.Delay)
+func (db *DelayBuffer) canRead(c chunk) bool {
+	valid := db.time().Add(-db.Delay)
 
 	return c.Timestamp.Before(valid)
 }

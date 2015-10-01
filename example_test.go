@@ -1,4 +1,4 @@
-package delay
+package delay_test
 
 import (
 	"bytes"

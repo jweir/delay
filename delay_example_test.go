@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func ExampleDelayBuffer() {
+func Example() {
 	var buf bytes.Buffer
 	pb := NewDelayBuffer(time.Second*1, &buf)
 

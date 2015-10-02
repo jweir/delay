@@ -11,7 +11,8 @@ import (
 // Buffer is an io.ReadWriter which will only Read after the given Buffer.Delay has passed.
 // It must be initiated through the NewDelay function.
 //
-// Internally it works by encoding the input stream with a timestamp.
+// Internally it works by encoding the input stream with a timestamp – using
+// time.UnixNano(). This encoding has an overhead of 20 bytes per write.
 //
 // For long delays, or environments writing large amounts of data, it may be
 // necessary to write to disk – an in memory ReadWriter might run out of memory.
@@ -36,24 +37,27 @@ type Buffer struct {
 }
 
 type chunk struct {
-	Timestamp time.Time
-	Data      []byte
+	Time int64
+	Data []byte
 }
 
-// NewBuffer creates a new Buffer with the given delay. This is the only way to create a delay.Buffer.
-func NewBuffer(delay time.Duration, buf io.ReadWriter) *Buffer {
+// NewBuffer creates a new Buffer with the given delay.  The passed ReadWriter will
+// store the written, and encoded, byte stream.
+//
+// NewBuffer is the only way to create a delay.Buffer.
+func NewBuffer(delay time.Duration, rw io.ReadWriter) *Buffer {
 	return &Buffer{
 		Delay: delay,
 		time:  time.Now,
 		head:  bytes.NewBuffer([]byte{}),
-		enc:   gob.NewEncoder(buf),
-		dec:   gob.NewDecoder(buf),
+		enc:   gob.NewEncoder(rw),
+		dec:   gob.NewDecoder(rw),
 	}
 }
 
 // Write will write len(b) bytes and tag it with the current time.
 func (db *Buffer) Write(b []byte) (int, error) {
-	c := chunk{db.time(), b}
+	c := chunk{db.time().UnixNano(), b}
 	err := db.enc.Encode(c)
 
 	if err != nil {
@@ -129,7 +133,7 @@ func (db *Buffer) Read(b []byte) (int, error) {
 }
 
 func (db *Buffer) canRead(c chunk) bool {
-	valid := db.time().Add(-db.Delay)
+	valid := db.time().Add(-db.Delay).UnixNano()
 
-	return c.Timestamp.Before(valid)
+	return c.Time <= valid
 }

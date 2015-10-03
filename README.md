@@ -1,4 +1,4 @@
-# DelayBuffer: a timeshifting buffer
+# delay.Buffer: a timeshifting buffer
 
 [![GoDoc](https://godoc.org/github.com/jweir/delay?status.svg)](https://godoc.org/github.com/jweir/delay)
 

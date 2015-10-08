@@ -15,7 +15,12 @@ func Example() {
 	pb := delay.NewBuffer(time.Second*1, &buf)
 
 	// write some data, this data will be stamped with time.Now()
-	pb.Write([]byte("abc"))
+	n, err := pb.Write([]byte("abc"))
+	fmt.Printf("Write %d bytes\n", n)
+
+	if err != nil {
+		// fail
+	}
 
 	b := make([]byte, 3)
 
@@ -32,6 +37,7 @@ func Example() {
 	fmt.Println(b)
 
 	// Output:
+	// Write 3 bytes
 	// 0
 	// [0 0 0]
 	// 3

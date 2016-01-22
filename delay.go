@@ -25,9 +25,9 @@ type Buffer struct {
 	// function to make testing a bit easier
 	time func() time.Time
 
-	// limbo is chunks which are, or nearing, out of delay
+	// sink is chunks which are, or nearing, out of delay
 	// these will next go to head
-	limbo []chunk
+	sink []chunk
 
 	// head if filled with bytes out of delay
 	head *bytes.Buffer
@@ -67,7 +67,7 @@ func (db *Buffer) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-func (db *Buffer) fillLimbo() error {
+func (db *Buffer) fillSink() error {
 	for {
 		var c chunk
 		err := db.dec.Decode(&c)
@@ -80,7 +80,7 @@ func (db *Buffer) fillLimbo() error {
 			return err
 		}
 
-		db.limbo = append(db.limbo, c)
+		db.sink = append(db.sink, c)
 
 		// terminate, don't want to keep filling if this chunk is in delay
 		if db.canRead(c) != true {
@@ -90,22 +90,22 @@ func (db *Buffer) fillLimbo() error {
 }
 
 func (db *Buffer) fillHead() error {
-	found := []chunk{}
-	for _, chunk := range db.limbo {
+	n := 0
+	for _, chunk := range db.sink {
 		if db.canRead(chunk) {
 			_, e := db.head.Write(chunk.Data)
 			if e != nil {
 				return e
 			}
-			found = append(found, chunk)
+			n += 1
 		} else {
 			break
 		}
 	}
 
-	count := len(found)
-	if count >= 1 {
-		db.limbo = append([]chunk{}, db.limbo[count:]...)
+	if n > 0 {
+		// db.sink = append([]chunk{}, db.sink[n:]...)
+		db.sink = db.sink[n:]
 	}
 
 	return nil
@@ -118,7 +118,7 @@ func (db *Buffer) fillHead() error {
 //
 // When  DelayBuffer is waiting for data to be released, the return value will be 0, nil.
 func (db *Buffer) Read(b []byte) (int, error) {
-	err := db.fillLimbo()
+	err := db.fillSink()
 	if err != nil {
 		return 0, err
 	}

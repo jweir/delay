@@ -54,3 +54,23 @@ func TestReading(t *testing.T) {
 	pb.readExpects([]byte{'i', 'j', 0}, t)
 	pb.readExpects([]byte{0, 0, 0, 0, 0}, t)
 }
+
+func BenchmarkMemory(b *testing.B) {
+	pb := NewBuffer(time.Second*1, bytes.NewBuffer([]byte{}))
+
+	go func() {
+		for {
+			b := []byte{}
+			pb.Read(b)
+			time.Sleep(time.Millisecond * 1)
+		}
+	}()
+
+	stop := time.Now().Add(time.Second * 8)
+	for time.Now().Before(stop) {
+		pb.Write([]byte{'1', '2', '3', '4'})
+
+		time.Sleep(time.Millisecond * 3)
+
+	}
+}

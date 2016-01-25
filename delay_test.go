@@ -3,6 +3,7 @@ package delay
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"testing"
 	"time"
 )
@@ -56,21 +57,21 @@ func TestReading(t *testing.T) {
 }
 
 func BenchmarkMemory(b *testing.B) {
-	pb := NewBuffer(time.Second*1, bytes.NewBuffer([]byte{}))
+	t, _ := ioutil.TempFile("", "test")
+	pb := NewBuffer(time.Microsecond*10, t)
 
 	go func() {
 		for {
 			b := []byte{}
 			pb.Read(b)
-			time.Sleep(time.Millisecond * 1)
+			time.Sleep(time.Millisecond * 2)
 		}
 	}()
 
-	stop := time.Now().Add(time.Second * 8)
+	stop := time.Now().Add(time.Second * 4)
 	for time.Now().Before(stop) {
 		pb.Write([]byte{'1', '2', '3', '4'})
 
-		time.Sleep(time.Millisecond * 3)
-
+		time.Sleep(time.Microsecond * 2)
 	}
 }

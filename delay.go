@@ -129,7 +129,11 @@ func (db *Buffer) Read(b []byte) (int, error) {
 		return 0, err
 	}
 
-	return db.head.Read(b)
+	n, err := db.head.Read(b)
+	if db.head.Len() == 0 && err == nil {
+		db.head = bytes.NewBuffer([]byte{})
+	}
+	return n, err
 }
 
 func (db *Buffer) canRead(c chunk) bool {

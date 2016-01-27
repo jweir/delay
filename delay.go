@@ -25,9 +25,8 @@ type Buffer struct {
 	// function to make testing a bit easier
 	time func() time.Time
 
-	// sink is chunks which are, or nearing, out of delay
-	// these will next go to head
-	sink []chunk
+	// sink is the next chunk which will be out of delay
+	sink *chunk
 
 	// head if filled with bytes out of delay
 	head *bytes.Buffer
@@ -68,6 +67,18 @@ func (db *Buffer) Write(b []byte) (int, error) {
 }
 
 func (db *Buffer) fillSink() error {
+
+	if db.sink != nil {
+		if db.canRead(*db.sink) == false {
+			return nil
+		}
+		_, e := db.head.Write(db.sink.Data)
+		db.sink = nil
+		if e != nil {
+			return e
+		}
+	}
+
 	for {
 		var c chunk
 		err := db.dec.Decode(&c)
@@ -80,35 +91,17 @@ func (db *Buffer) fillSink() error {
 			return err
 		}
 
-		db.sink = append(db.sink, c)
-
-		// terminate, don't want to keep filling if this chunk is in delay
-		if db.canRead(c) != true {
-			return nil
-		}
-	}
-}
-
-func (db *Buffer) fillHead() error {
-	n := 0
-	for _, chunk := range db.sink {
-		if db.canRead(chunk) {
-			_, e := db.head.Write(chunk.Data)
+		if db.canRead(c) == true {
+			_, e := db.head.Write(c.Data)
 			if e != nil {
 				return e
 			}
-			n += 1
 		} else {
-			break
+			// terminate, don't want to keep filling if this chunk is in delay
+			db.sink = &c
+			return nil
 		}
 	}
-
-	if n > 0 {
-		// db.sink = append([]chunk{}, db.sink[n:]...)
-		db.sink = db.sink[n:]
-	}
-
-	return nil
 }
 
 // Read will read upto len(b) bytes into b.  Read will only read bytes which were
@@ -119,12 +112,6 @@ func (db *Buffer) fillHead() error {
 // When  DelayBuffer is waiting for data to be released, the return value will be 0, nil.
 func (db *Buffer) Read(b []byte) (int, error) {
 	err := db.fillSink()
-	if err != nil {
-		return 0, err
-	}
-
-	err = db.fillHead()
-
 	if err != nil {
 		return 0, err
 	}

@@ -44,9 +44,13 @@ func TestReading(t *testing.T) {
 
 	now = start
 	pb.readExpects([]byte{0, 0}, t)
+	pb.readExpects([]byte{0, 0}, t)
 
 	now = start.Add(21 * sec)
 	pb.readExpects([]byte{'a', 'b', 0}, t)
+
+	now = start.Add(25 * sec)
+	pb.readExpects([]byte{0, 0}, t)
 
 	now = start.Add(51 * sec)
 	pb.readExpects([]byte{'c'}, t)
